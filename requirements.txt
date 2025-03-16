@@ -1,0 +1,14 @@
+audioop-lts
+librosa
+mido
+numpy
+pydub
+torch
+standard-aifc
+standard-sunau
+matplotlib
+scikit-learn
+onnx
+protobuf==5.29.3
+pyaudio
+soundfile

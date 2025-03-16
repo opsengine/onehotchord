@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/corbanbrook/dsp.js/dsp.js"></script>
+</head>
+<body>
+    <button id="startButton">Start</button>
+    <div id="result"></div>
+    <script type="module">
+        import CQTransform from './cqt.js';
+
+        // Load the ONNX model
+        let session;
+        let modelLoaded = false;
+        const noteNames = ["C ", "C#", "D ", "D#", "E ", "F ", "F#", "G ", "G#", "A ", "A#", "B "];
+        const chordNames = ["dim", "min", "maj", "7", "maj7", "min7"];
+        
+        // Initialize CQT
+        const cqt = new CQTransform({
+            sampleRate: 22050,
+            minFreq: 65.41,  // C2
+            maxFreq: 2093,   // C7 (for 5 octaves)
+            binsPerOctave: 12,
+            fftSize: 8192    // Match analyzer's FFT size
+        });
+
+        // Load model at startup
+        async function loadModel() {
+            try {
+                session = new onnx.InferenceSession();
+                await session.loadModel("one_hot_chord.onnx");
+                console.log("Model loaded successfully");
+                modelLoaded = true;
+                document.getElementById("result").innerHTML = "Model loaded successfully";
+            } catch (e) {
+                console.error("Failed to load ONNX model:", e);
+                document.getElementById("result").innerHTML = "Failed to load model: " + e.message;
+            }
+        }
+        
+        // Load the model when the page loads
+        loadModel();
+
+        // Make startRecognition available globally
+        window.startRecognition = async function() {
+            if (!modelLoaded) {
+                alert("Model is still loading. Please wait.");
+                return;
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const audioCtx = new AudioContext({ sampleRate: 22050 });
+            const source = audioCtx.createMediaStreamSource(stream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 8192;
+            source.connect(analyser);
+
+            const frequencyData = new Float32Array(analyser.frequencyBinCount);
+            
+            // Keep the old CQT parameters for reference
+            const minFreq = 65.41; // C2
+            const binsPerOctave = 12;
+            const octaves = 5;
+            const totalBins = binsPerOctave * octaves;
+            const chroma = new Float32Array(12);
+            const octave_centroid = new Float32Array(12);
+
+            // Pre-calculate all the center frequencies, bandwidths, and FFT bin indices
+            const centerFreqs = new Float32Array(totalBins);
+            const bandwidths = new Float32Array(totalBins);
+            const minBins = new Int32Array(totalBins);
+            const maxBins = new Int32Array(totalBins);
+
+            // Initialize once (keeping for reference)
+            function initCQTParameters(sampleRate, binCount) {
+                const maxFreq = sampleRate / 2;
+                const bandwidth_factor = Math.pow(2, 1/12) - 1; 
+                
+                for (let k = 0; k < totalBins; k++) {
+                    centerFreqs[k] = minFreq * Math.pow(2, k / binsPerOctave);
+                    bandwidths[k] = centerFreqs[k] * bandwidth_factor;
+                    
+                    // Calculate frequency range for this bin
+                    const minBinFreq = centerFreqs[k] - bandwidths[k]/2;
+                    const maxBinFreq = centerFreqs[k] + bandwidths[k]/2;
+                    
+                    // Convert to FFT bin indices
+                    minBins[k] = Math.max(0, Math.floor(minBinFreq * binCount / maxFreq));
+                    maxBins[k] = Math.min(binCount - 1, Math.ceil(maxBinFreq * binCount / maxFreq));
+                }
+            }
+
+            // Keep the old calculateCQT function for reference DO NOT DELETE
+            // function calculateCQT(frequencyData, sampleRate, noteEnergy, noteCenter) {
+            //     noteEnergy.fill(0);
+            //     noteCenter.fill(0);
+            //     const binEnergy = new Float32Array(totalBins);
+            //     const maxFreq = sampleRate / 2;
+                
+            //     // Pre-calculate all linear magnitudes
+            //     const magnitudes = new Float32Array(frequencyData.length);
+            //     for (let i = 0; i < frequencyData.length; i++) {
+            //         magnitudes[i] = Math.pow(10, frequencyData[i] / 20);
+            //     }
+
+            //     // For each note in the entire range
+            //     for (let k = 0; k < totalBins; k++) {
+            //         // Skip if beyond Nyquist frequency
+            //         if (centerFreqs[k] > maxFreq) continue;
+
+            //         // Sum energy in this frequency range
+            //         let energy = 0;
+            //         for (let i = minBins[k]; i <= maxBins[k]; i++) {
+            //             energy += magnitudes[i];
+            //         }
+            //         let note = k % 12;
+            //         binEnergy[k] = energy;
+            //         noteEnergy[note] += energy;
+            //         octaveId = Math.floor(k / binsPerOctave) + 2;
+            //         noteCenter[note] += energy * octaveId;
+            //     }
+
+            //     for (let note = 0; note < 12; note++) {
+            //         noteCenter[note] /= noteEnergy[note] * 7;
+            //     }
+            // }
+
+            // Create canvas for visualization
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 200;
+            document.body.appendChild(canvas);
+            const canvasCtx = canvas.getContext('2d');
+            
+            // Create canvas for CQT visualization
+            const cqtCanvas = document.createElement('canvas');
+            cqtCanvas.width = 800;
+            cqtCanvas.height = 200;
+            document.body.appendChild(cqtCanvas);
+            const cqtCanvasCtx = cqtCanvas.getContext('2d');
+            
+            // Create text display for numeric values
+            const fftDisplay = document.createElement('div');
+            document.body.appendChild(fftDisplay);
+
+            // Create chord display
+            const chordDisplay = document.createElement('div');
+            chordDisplay.style.fontSize = '24px';
+            chordDisplay.style.fontWeight = 'bold';
+            chordDisplay.style.margin = '20px 0';
+            document.body.appendChild(chordDisplay);
+
+            // Create performance display
+            const perfDisplay = document.createElement('div');
+            document.body.appendChild(perfDisplay);
+            
+            // Track performance
+            let lastProcessingTime = 0;
+            
+            async function process(timestamp) {
+                // Initialize lastProcessTime if it doesn't exist
+                process.lastProcessTime = process.lastProcessTime || 0;
+                
+                // Only process every 500ms
+                if (timestamp && (timestamp - process.lastProcessTime) < 500) {
+                    requestAnimationFrame(process);
+                    return;
+                }
+
+                process.lastProcessTime = timestamp;
+
+                // Start timing
+                const startTime = performance.now();
+                
+                // Get frequency data
+                analyser.getFloatFrequencyData(frequencyData);
+
+                const cqtData = cqt.compute(frequencyData);
+
+                // Calculate chroma vector (sum energy across octaves for each note)
+                const chroma = new Float32Array(12);
+                const minOctave = 2; // C2 is our lowest note
+        
+                for (let note = 0; note < 12; note++) {
+                    for (let octave = minOctave; octave <= minOctave + 5; octave++) {
+                        const binIndex = (octave - minOctave) * 12 + note;
+                        if (binIndex < cqtData.length) {
+                            chroma[note] += cqtData[binIndex];
+                        }
+                    }
+                }
+
+                // Calculate octave centroid
+                for (let note = 0; note < 12; note++) {
+                    let sum = 0;
+                    for (let oct = 0; oct < 5; oct++) {
+                        const idx = note + (oct * 12);
+                        if (idx < cqtData.length) {
+                            sum += cqtData[idx] * (oct + 2);
+                        }
+                    }
+                    octave_centroid[note] = sum / (7 * chroma[note]);
+                }
+
+                // Normalize chroma
+                const maxChroma = Math.max(...chroma);
+                if (maxChroma > 0) {
+                    for (let i = 0; i < 12; i++) {
+                        chroma[i] /= maxChroma;
+                    }
+                }
+
+                console.log("CHROMA", chroma);
+                console.log("OCTAVE CENTROID", octave_centroid);
+
+                // Run model inference
+                await runModelInference(chroma, octave_centroid);
+                
+                // Calculate and display processing time
+                lastProcessingTime = performance.now() - startTime;
+
+                displayFFT(frequencyData, canvasCtx, canvas.width, canvas.height);
+                displayCQT(chroma, octave_centroid, cqtCanvasCtx, cqtCanvas.width, cqtCanvas.height);
+
+                // Display some numeric values
+                let fftText = "CQT Results:<br>";
+
+                // Find the top 3 notes
+                let topIndices = [];
+                let noteEnergyCopy = [...chroma]; // Create a copy to avoid modifying the original
+
+                for (let j = 0; j < 3; j++) {
+                    let maxVal = -Infinity;
+                    let maxIdx = -1;
+                    
+                    for (let i = 0; i < 12; i++) {
+                        if (noteEnergyCopy[i] > maxVal) {
+                            maxVal = noteEnergyCopy[i];
+                            maxIdx = i;
+                        }
+                    }
+                    
+                    if (maxIdx !== -1) {
+                        topIndices.push(maxIdx);
+                        noteEnergyCopy[maxIdx] = -Infinity; // Mark as processed
+                    }
+                }
+
+                // Display all notes, highlighting the top ones
+                fftText += '<pre style="font-family: monospace; margin: 0;">';
+                for (let i = 0; i < 12; i++) {
+                    const noteName = noteNames[i];
+                    
+                    if (topIndices[0] === i) {
+                        fftText += `<strong style="color: gold;">${noteName}: ${chroma[i]}</strong><br>`;
+                    } else if (topIndices[1] === i) {
+                        fftText += `<strong style="color: silver;">${noteName}: ${chroma[i]}</strong><br>`;
+                    } else if (topIndices[2] === i) {
+                        fftText += `<strong style="color: silver;">${noteName}: ${chroma[i]}</strong><br>`;
+                    } else {
+                        fftText += `${noteName}: ${chroma[i]}<br>`;
+                    }
+                }
+                fftText += '</pre>';
+                
+                fftDisplay.innerHTML = fftText;
+                
+                // Display performance metrics
+                perfDisplay.innerHTML = `
+                    <h3>Performance Metrics:</h3>
+                    <p>Last processing time: ${lastProcessingTime.toFixed(2)} ms</p>
+                `;
+                requestAnimationFrame(process);
+            }
+            
+            // Run model inference on the CQT data
+            async function runModelInference(noteEnergy, baseOctave) {
+                if (!modelLoaded) return;
+            
+                try {
+                    const maxEnergy = Math.max(...noteEnergy);
+                    const normalizedFeatures = new Float32Array(24);
+
+                    for (let i = 0; i < 12; i++) {
+                        normalizedFeatures[i] = maxEnergy > 0 ? noteEnergy[i] / Math.max(maxEnergy, 1e-2) : 0;
+                        normalizedFeatures[i+12] = octave_centroid[i];
+                    }
+
+// const normalizedFeatures2 = new Float32Array([
+//     0.62596089, 0.06750293, 0.1387105, 0.04849073, 0.77351207, 0.119605,
+//     0.05001159, 1.0, 0.24364561, 0.05410795, 0.07106108, 0.16140401,
+//     0.49337691, 0.41717692, 0.56936371, 0.45495932, 0.53081172, 0.71411936,
+//     0.5308226, 0.53006724, 0.77978046, 0.58880444, 0.62680475, 0.63346341
+// ]);
+
+const expectedFeatures = new Float32Array([
+    1.0, 0.09837228, 0.08655894, 0.08825956, 0.67449069, 0.07080958,
+    0.06180312, 0.37052333, 0.04155691, 0.02665041, 0.03550147, 0.06078943,
+    0.44505322, 0.44230277, 0.45433601, 0.43241933, 0.43286071, 0.40424347,
+    0.39842122, 0.47629916, 0.42935499, 0.38892777, 0.40398704, 0.40747465
+]);
+
+const badFeatures = new Float32Array([
+    0.797324538230896, 0.48553022742271423, 0.1009872704744339, 0.2519174814224243, 1.0, 0.45540651679039,
+    0.09318926185369492, 0.43790102005004883, 0.1553368866443634, 0.061406705528497696, 0.08047693222761154, 0.3607299327850342,
+    0.4490143954753876, 0.4390147924423218, 0.5499735474586487, 0.45305103063583374, 0.4445040225982666, 0.4405157268047333,
+    0.4800698757171631, 0.49486833810806274, 0.4722858667373657, 0.4999103248119354, 0.5070945024490356, 0.3555891811847687
+]);
+
+console.log("ACTUAL", normalizedFeatures);
+console.log("EXPECTED", expectedFeatures);
+// return;
+
+                    // Prepare the input tensor
+                    const inputTensor = new onnx.Tensor(normalizedFeatures, 'float32', [1, 24]);
+                    console.log("Input tensor:", inputTensor);
+
+                    // Run inference
+                    const outputMap = await session.run([inputTensor]);
+
+                    const rootOutput = outputMap.get("root_output");
+                    const chordOutput = outputMap.get("chord_output");
+                    const presenceOutput = outputMap.get("presence_output");
+                    
+                    if (!rootOutput || !chordOutput || !presenceOutput) {
+                        chordDisplay.innerHTML = "Error: Could not get model outputs";
+                        return;
+                    }
+                    
+                    // Get the raw logits from the tensors
+                    const rootLogits = rootOutput.data;
+                    const chordLogits = chordOutput.data;
+                    const presenceLogit = presenceOutput.data[0];  // Single value
+                    console.log("Root logits:", rootLogits);
+                    console.log("Chord logits:", chordLogits);
+                    console.log("Presence logit:", presenceLogit);
+                    
+                    // Apply softmax to convert logits to probabilities
+                    const rootProbs = softmax(Array.from(rootLogits));
+                    const chordProbs = softmax(Array.from(chordLogits));
+                    const presenceProb = sigmoid(presenceLogit);  // Apply sigmoid for presence
+
+                    console.log("Root probabilities:", rootProbs);
+                    console.log("Chord probabilities:", chordProbs);
+                    console.log("Presence probability:", presenceProb);
+
+                    // Find the predicted root note (highest probability)
+                    let maxRootProb = -Infinity;
+                    let predictedRoot = -1;
+                    for (let i = 0; i < rootProbs.length; i++) {
+                        if (rootProbs[i] > maxRootProb) {
+                            maxRootProb = rootProbs[i];
+                            predictedRoot = i;
+                        }
+                    }
+
+                    // Find the predicted chord type (highest probability)
+                    let maxChordProb = -Infinity;
+                    let predictedChord = -1;
+                    for (let i = 0; i < chordProbs.length; i++) {
+                        if (chordProbs[i] > maxChordProb) {
+                            maxChordProb = chordProbs[i];
+                            predictedChord = i;
+                        }
+                    }
+                    
+                    // Display the chord prediction
+                    const confidenceThreshold = 0.5;
+                    const presenceThreshold = 0.5;
+
+                    if (presenceProb > presenceThreshold) {
+                        // Both root and chord type have high confidence and presence is detected
+                        const chordName = `${noteNames[predictedRoot].trim()}${chordNames[predictedChord]}`;
+                        chordDisplay.innerHTML = `Detected Chord: ${chordName}<br>
+                            Root: ${(maxRootProb * 100).toFixed(1)}%<br>
+                            Type: ${(maxChordProb * 100).toFixed(1)}%<br>
+                            Presence: ${(presenceProb * 100).toFixed(1)}%`;
+                    } else {
+                        // Low confidence or no chord present
+                        chordDisplay.innerHTML = `No chord detected<br>
+                            Root: ${(maxRootProb * 100).toFixed(1)}%<br>
+                            Type: ${(maxChordProb * 100).toFixed(1)}%<br>
+                            Presence: ${(presenceProb * 100).toFixed(1)}%`;
+                    }
+                    
+                } catch (e) {
+                    console.error("Error running inference:", e);
+                    chordDisplay.innerHTML = `Error: ${e.message}`;
+                }
+            }
+            
+            // Implement softmax function
+            function softmax(logits) {
+                // Find the maximum value to avoid numerical instability
+                const maxLogit = Math.max(...logits);
+                
+                // Subtract max from each value and exponentiate
+                const expValues = logits.map(logit => Math.exp(logit - maxLogit));
+                
+                // Calculate the sum of all exponentiated values
+                const sumExp = expValues.reduce((acc, val) => acc + val, 0);
+                
+                // Normalize by the sum to get probabilities
+                return expValues.map(exp => exp / sumExp);
+            }
+
+            // Implement sigmoid function for presence output
+            function sigmoid(x) {
+                return 1 / (1 + Math.exp(-x));
+            }
+            
+            function displayCQT(noteEnergy, peakOctave, canvasCtx, width, height) {
+                // Clear the canvas
+                canvasCtx.fillStyle = 'rgb(0, 0, 0)';
+                canvasCtx.fillRect(0, 0, width, height);
+                
+                const bufferLength = noteEnergy.length;
+                const barWidth = width / bufferLength;
+                
+                // Draw title
+                canvasCtx.fillStyle = 'white';
+                canvasCtx.font = '14px Arial';
+                canvasCtx.fillText('Constant-Q Transform (CQT)', 10, 20);
+                
+                // Draw each CQT bin
+                for (let i = 0; i < bufferLength; i++) {
+                    const value = noteEnergy[i];
+                    const percentHeight = value;
+                    const barHeight = Math.max(0, percentHeight * height);
+                    
+                    // Color based on magnitude
+                    canvasCtx.fillStyle = `hsl(${240 - percentHeight * 240}, 100%, 50%)`;
+                    
+                    // Draw bar
+                    canvasCtx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
+                    
+                    // Draw note names
+                    const noteIndex = i % 12;
+                    canvasCtx.fillStyle = 'white';
+                    canvasCtx.font = '10px Arial';
+                    canvasCtx.fillText(noteNames[noteIndex]+" "+value, i * barWidth + 2, height - 5);
+                }
+            }
+            
+            function displayFFT(frequencyData, canvasCtx, width, height) {
+                // Clear the canvas
+                canvasCtx.fillStyle = 'rgb(0, 0, 0)';
+                canvasCtx.fillRect(0, 0, width, height);
+                
+                const bufferLength = frequencyData.length;
+                const maxFreq = audioCtx.sampleRate / 2;
+                
+                for (let i = 0; i < bufferLength; i++) {
+                    // Calculate frequency for this bin
+                    const frequency = i * maxFreq / bufferLength;
+                    
+                    // Use logarithmic scale for x-position
+                    // This will give more space to lower frequencies
+                    const logFreq = Math.log(frequency + 1) / Math.log(maxFreq + 1);
+                    const xPosition = logFreq * width;
+                    
+                    // Convert dB to height
+                    const dbValue = frequencyData[i];
+                    const percentHeight = (dbValue + 100) / 100;
+                    const barHeight = percentHeight * height;
+                    
+                    // Draw a bar for each frequency bin
+                    canvasCtx.fillStyle = `rgb(${Math.floor(percentHeight * 255)}, 255, 50)`;
+                    
+                    // Use smaller width for higher frequencies (where bins are denser in log scale)
+                    const barWidth = Math.max(1, (Math.log((i+1) + 1) / Math.log(maxFreq + 1) - 
+                                                 Math.log(i + 1) / Math.log(maxFreq + 1)) * width);
+                    
+                    canvasCtx.fillRect(xPosition, height - barHeight, barWidth, barHeight);
+                }
+            }
+            
+            // Start the process
+            requestAnimationFrame(process);
+        }
+
+        // Add click handler using addEventListener instead of onclick
+        document.getElementById('startButton').addEventListener('click', startRecognition);
+    </script>
+</body>
+</html>

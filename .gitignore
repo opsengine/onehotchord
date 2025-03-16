@@ -1,0 +1,8 @@
+*.zip
+*.sf2
+*.wav
+*.mid
+*.npz
+.DS_Store
+__pycache__
+sf2

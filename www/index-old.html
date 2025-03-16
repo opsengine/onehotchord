@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One Hot Chord</title>
+    <script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #6c5ce7;
+            --accent-color: #a29bfe;
+            --dark-bg: #121212;
+            --darker-bg: #0a0a0a;
+            --text-color: #f5f5f5;
+            --button-hover: #5649c0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, var(--dark-bg) 0%, var(--darker-bg) 100%);
+            z-index: -1;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 800px;
+            padding: 2rem;
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 2rem;
+            letter-spacing: 3px;
+            font-weight: 500;
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 8px rgba(108, 92, 231, 0.2);
+        }
+        
+        .listen-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .listen-btn:hover {
+            background-color: var(--button-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108, 92, 231, 0.6);
+        }
+        
+        .listen-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 10px rgba(108, 92, 231, 0.4);
+        }
+        
+        .listen-btn .icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #ff0000;
+            transition: all 0.3s ease;
+        }
+        
+        .listen-btn.listening .icon {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.7;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .result-container {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 1.5rem;
+            width: 100%;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .result-container.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .chord-display {
+            font-size: 2.5rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--accent-color);
+            letter-spacing: 1px;
+        }
+        
+        .visualization {
+            width: 100%;
+            height: 100px;
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+        
+        .bar {
+            width: 7%;
+            background: linear-gradient(to top, var(--primary-color), var(--accent-color));
+            border-radius: 4px 4px 0 0;
+            transition: height 0.2s ease;
+        }
+        
+        .note-labels {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            opacity: 0.8;
+            letter-spacing: 0.5px;
+        }
+        
+        .note-label {
+            width: 7%;
+            text-align: center;
+        }
+        
+        .volume-meter {
+            width: 100%;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 1.5rem;
+            overflow: hidden;
+        }
+        
+        .volume-level {
+            height: 100%;
+            background: linear-gradient(to right, var(--primary-color), var(--accent-color));
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        
+        .model-status {
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .model-status.loading {
+            background-color: rgba(255, 193, 7, 0.2);
+        }
+        
+        .model-status.loaded {
+            background-color: rgba(40, 167, 69, 0.2);
+        }
+        
+        .model-status.error {
+            background-color: rgba(220, 53, 69, 0.2);
+        }
+        
+        footer {
+            position: absolute;
+            bottom: 1rem;
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ONE HOT CHORD</h1>
+        
+        <button id="listenBtn" class="listen-btn" disabled style="margin: 0 auto; margin-bottom: 2rem;">
+            <span class="icon"></span>
+            <span class="text">Start Listening</span>
+        </button>
+        
+        <div id="resultContainer" class="result-container">
+            <div id="chordDisplay" class="chord-display">-</div>
+            
+            <div id="visualization" class="visualization">
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+                <div class="bar" style="height: 0%"></div>
+            </div>
+            
+            <div class="note-labels">
+                <div class="note-label">C</div>
+                <div class="note-label">C♯</div>
+                <div class="note-label">D</div>
+                <div class="note-label">E♭</div>
+                <div class="note-label">E</div>
+                <div class="note-label">F</div>
+                <div class="note-label">F♯</div>
+                <div class="note-label">G</div>
+                <div class="note-label">A♭</div>
+                <div class="note-label">A</div>
+                <div class="note-label">B♭</div>
+                <div class="note-label">B</div>
+            </div>
+            
+            <div class="volume-meter">
+                <div id="volumeLevel" class="volume-level"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import CQTransform from './cqt.js';
+        import { ChordRecognizer } from './chord-recognition.js';
+        
+        // DOM elements
+        const listenBtn = document.getElementById('listenBtn');
+        const resultContainer = document.getElementById('resultContainer');
+        const chordDisplay = document.getElementById('chordDisplay');
+        const visualization = document.getElementById('visualization');
+        const bars = visualization.querySelectorAll('.bar');
+        const volumeLevel = document.getElementById('volumeLevel');
+        
+        // Create chord recognizer and pass CQTransform
+        const recognizer = new ChordRecognizer(CQTransform);
+        
+        // Set up callbacks
+        recognizer.onModelLoaded = () => {
+            listenBtn.disabled = false;
+        };
+        
+        recognizer.onModelError = (error) => {
+            console.error("Model loading error:", error);
+        };
+        
+        recognizer.onAudioError = (error) => {
+            alert('Could not access microphone. Please check permissions and try again.');
+        };
+        
+        recognizer.onStatusChange = (status) => {
+            if (status === 'listening') {
+                listenBtn.classList.add('listening');
+                listenBtn.querySelector('.text').textContent = 'Listening...';
+                resultContainer.classList.add('active');
+            } else if (status === 'stopped') {
+                listenBtn.classList.remove('listening');
+                listenBtn.querySelector('.text').textContent = 'Start Listening';
+            }
+        };
+        
+        recognizer.onUpdate = (data) => {
+            // Update volume meter
+            volumeLevel.style.width = `${data.volume * 100}%`;
+            
+            // Update visualization bars
+            for (let i = 0; i < 12; i++) {
+                const barHeight = data.normalizedChroma[i] * data.volume * 100;
+                bars[i].style.height = `${barHeight}%`;
+            }
+            
+            // Update chord display
+            chordDisplay.textContent = data.chordText;
+        };
+        
+        // Load the model when the page loads
+        recognizer.loadModel();
+        
+        // Event listeners
+        listenBtn.addEventListener('click', () => {
+            recognizer.toggleListening();
+        });
+    </script>
+</body>
+</html>
