@@ -12,6 +12,8 @@ import struct
 
 from common import *
 
+SAMPLE_RATE = 22050
+
 def get_instrument():
     return random.choice(INSTRUMENTS)
 
@@ -61,14 +63,15 @@ def generate_chord_wav(root, chord_type, intervals, duration, instrument, invert
 
     generate_chord_midi(root, intervals, midi_file, duration, instrument)
     
+    gain = random.uniform(0.2, 0.5)
     subprocess.run([
         'fluidsynth',
         '--no-midi-in',
         '--no-shell',
-        '--sample-rate=22050',
+        f'--sample-rate={SAMPLE_RATE}',
         '--reverb=0',
         '--chorus=0',
-        '--gain=0.5',
+        f'--gain={gain}',
         '--fast-render', output_file,
         '--audio-file-type=wav',
         '--quiet',
@@ -84,7 +87,7 @@ def generate_chord_wav(root, chord_type, intervals, duration, instrument, invert
 
 def generate_white_noise(output_file, duration=1.0, amplitude=0.5):
     """Generate white noise WAV file"""
-    sample_rate = 22050
+    sample_rate = SAMPLE_RATE
     num_samples = int(duration * sample_rate)
     
     # Generate white noise
@@ -106,7 +109,7 @@ def generate_white_noise(output_file, duration=1.0, amplitude=0.5):
 
 def generate_pink_noise(output_file, duration=1.0, amplitude=0.5):
     """Generate pink noise WAV file"""
-    sample_rate = 22050
+    sample_rate = SAMPLE_RATE
     num_samples = int(duration * sample_rate)
     
     # Generate white noise
@@ -156,7 +159,7 @@ def generate_pink_noise(output_file, duration=1.0, amplitude=0.5):
 
 def generate_brown_noise(output_file, duration=1.0, amplitude=0.5):
     """Generate brown noise WAV file"""
-    sample_rate = 22050
+    sample_rate = SAMPLE_RATE
     num_samples = int(duration * sample_rate)
     
     # Generate brown noise using random walk
@@ -187,7 +190,7 @@ def generate_brown_noise(output_file, duration=1.0, amplitude=0.5):
 
 def generate_sine_sweep(output_file, duration=1.0, amplitude=0.5):
     """Generate a sine sweep from 20Hz to 10kHz"""
-    sample_rate = 22050
+    sample_rate = SAMPLE_RATE
     num_samples = int(duration * sample_rate)
     
     # Generate time array
@@ -277,7 +280,7 @@ def generate_single_note_wav(note_value, duration, instrument):
         'fluidsynth',
         '--no-midi-in',
         '--no-shell',
-        '--sample-rate=22050',
+        '--sample-rate=' + str(SAMPLE_RATE),
         '--reverb=0',
         '--chorus=0',
         '--gain=0.5',
@@ -344,5 +347,3 @@ if __name__ == "__main__":
     print("Generating single note samples...")
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         single_note_results = list(executor.map(process_single_note, single_note_tasks))
-    
-    print(f"Generated {len(chord_results)} chord samples, {len(noise_results)} noise samples, and {len(single_note_results)} single note samples")

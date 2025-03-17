@@ -53,9 +53,10 @@ export class ChordRecognizer {
     // Initialize audio
     async initAudio() {
         try {
-            // Create audio context
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-                sampleRate: 22050 // Match the model's expected sample rate
+            // Create audio context with proper type handling for webkitAudioContext
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            this.audioContext = new AudioContextClass({
+                sampleRate: 44100  // This is now double the original rate
             });
             
             // Get user media
@@ -66,7 +67,7 @@ export class ChordRecognizer {
             
             // Create analyzer
             this.analyzer = this.audioContext.createAnalyser();
-            this.analyzer.fftSize = 8192;
+            this.analyzer.fftSize = 16384;  // Double the original size
             this.analyzer.smoothingTimeConstant = 0.85;
             
             // Connect source to analyzer

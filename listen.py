@@ -58,12 +58,12 @@ def predict_chord(model, features):
     root_conf = root_probs[0, root_pred].item()
     chord_conf = chord_probs[0, chord_pred].item()
 
-    if presence_prob > 0.5:
-        # print features and probabilities
-        print(f"\n\nFeatures: {features}")
-        print(f"Root probabilities: {root_probs}")
-        print(f"Chord probabilities: {chord_probs}")
-        print(f"Presence probability: {presence_prob}")
+    # if presence_prob > 0.5:
+    #     # print features and probabilities
+    #     print(f"\n\nFeatures: {features}")
+    #     print(f"Root probabilities: {root_probs}")
+    #     print(f"Chord probabilities: {chord_probs}")
+    #     print(f"Presence probability: {presence_prob}")
 
     return root_pred, chord_pred, root_conf, chord_conf, presence_prob
 
@@ -126,8 +126,8 @@ def main():
                 chord_name = f"{NOTE_NAMES[root_pred]}{CHORD_NAMES[chord_pred]}"
                 if presence_prob > presence_threshold: # and root_conf > confidence_threshold and chord_conf > confidence_threshold:
                     print(f"Detected: {chord_name} (Root: {root_conf*100:.1f}%, Chord: {chord_conf*100:.1f}%, Presence: {presence_prob*100:.1f}%)   ")
-                else:
-                    print(f"No chord detected: {chord_name} (Root: {root_conf*100:.1f}%, Chord: {chord_conf*100:.1f}%, Presence: {presence_prob*100:.1f}%)   ")
+                # else:
+                #     print(f"No chord detected: {chord_name} (Root: {root_conf*100:.1f}%, Chord: {chord_conf*100:.1f}%, Presence: {presence_prob*100:.1f}%)   ")
                 # else:
                 #     print("\rNo chord detected with high confidence                                ", end="")
             
