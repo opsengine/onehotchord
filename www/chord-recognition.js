@@ -7,10 +7,12 @@ export class ChordRecognizer {
         // Audio context and analyzer setup
         this.audioContext = null;
         this.analyzer = null;
+        this.audioSource = null;  // Add property to store the audio source node
         this.cqt = null;
         this.dataArray = null;
         this.isListening = false;
         this.updateInterval = null;
+        this.mediaStream = null;  // Add property to store the media stream
         
         // ONNX model setup
         this.session = null;
@@ -58,7 +60,9 @@ export class ChordRecognizer {
             
             // Get user media
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaStream = stream;  // Store the media stream
             const source = this.audioContext.createMediaStreamSource(stream);
+            this.audioSource = source;  // Store the audio source
             
             // Create analyzer
             this.analyzer = this.audioContext.createAnalyser();
@@ -80,8 +84,15 @@ export class ChordRecognizer {
             // Create data array for frequency data
             this.dataArray = new Float32Array(this.analyzer.frequencyBinCount);
             
-            // Start listening
-            this.startListening();
+            // Set listening flag and start update interval
+            this.isListening = true;
+            
+            if (this.onStatusChange) {
+                this.onStatusChange('listening');
+            }
+            
+            // Update every 100ms
+            this.updateInterval = setInterval(() => this.updateAudioData(), 100);
             
             return true;
         } catch (error) {
@@ -96,7 +107,23 @@ export class ChordRecognizer {
     }
     
     // Start listening and updating
-    startListening() {
+    async startListening() {
+        // If audio context is null or media stream is null, we need to reinitialize everything
+        if (!this.audioContext || !this.mediaStream) {
+            return await this.initAudio(); // Return the result of initAudio directly
+        }
+        
+        // If audio context is suspended, resume it
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            try {
+                await this.audioContext.resume();
+                console.log('Audio context resumed');
+            } catch (error) {
+                console.error('Error resuming audio context:', error);
+                return false;
+            }
+        }
+        
         this.isListening = true;
         
         if (this.onStatusChange) {
@@ -105,17 +132,64 @@ export class ChordRecognizer {
         
         // Update every 100ms
         this.updateInterval = setInterval(() => this.updateAudioData(), 100);
+        
+        return true;
     }
     
     // Stop listening
-    stopListening() {
+    async stopListening() {
+        clearInterval(this.updateInterval);
+        
+        if (this.audioSource) {
+            try {
+                this.audioSource.disconnect();
+                console.log('Audio source disconnected');
+                this.audioSource = null;
+            } catch (e) {
+                console.log('Error disconnecting audio source:', e);
+            }
+        }
+        
+        if (this.analyzer) {
+            try {
+                this.analyzer.disconnect();
+                console.log('Analyzer disconnected');
+            } catch (e) {
+                console.log('Error disconnecting analyzer:', e);
+            }
+            this.analyzer = null;
+        }
+        
+        // Stop all media stream tracks
+        if (this.mediaStream) {
+            const tracks = this.mediaStream.getTracks();
+            tracks.forEach(track => {
+                track.stop();
+                console.log('Media track stopped:', track.kind);
+            });
+            this.mediaStream = null;
+        }
+        
+        // Close the audio context completely
+        if (this.audioContext) {
+            try {
+                await this.audioContext.close();
+                console.log('Audio context closed');
+                this.audioContext = null;
+            } catch (error) {
+                console.error('Error closing audio context:', error);
+            }
+        }
+        
+        // Clear other audio-related resources
+        this.cqt = null;
+        this.dataArray = null;
+
         this.isListening = false;
         
         if (this.onStatusChange) {
             this.onStatusChange('stopped');
         }
-        
-        clearInterval(this.updateInterval);
     }
     
     // Calculate volume from FFT data
@@ -293,6 +367,7 @@ export class ChordRecognizer {
             const rootNote = this.noteNames[prediction.root];
             const chordTypeName = this.chordNames[prediction.chord];
             chordText = rootNote + " " + chordTypeName;
+            console.log("Prediction:", chordText);
         } else if (prediction && prediction.presence > 0.25 && prediction.presence < 0.75 && volume > 0.1) {
             chordText = "???";
         }
@@ -309,17 +384,12 @@ export class ChordRecognizer {
     }
     
     // Toggle listening state
-    toggleListening() {
+    async toggleListening() {
         if (this.isListening) {
             this.stopListening();
             return false;
         } else {
-            if (!this.audioContext) {
-                return this.initAudio();
-            } else {
-                this.startListening();
-                return true;
-            }
+            return await this.startListening();
         }
     }
-} 
+}
