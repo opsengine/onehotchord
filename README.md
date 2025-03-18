@@ -27,8 +27,8 @@ One Hot Chord uses a deep neural network to analyze audio and identify chords:
 - `gen_samples.py` - Generates synthetic chord samples for training
 - `preprocess.py` - Extracts features from audio samples
 - `train.py` - Trains the neural network model
-- `net.py` - Defines the neural network architecture
-- `www/` - Web interface for browser-based chord recognition
+- `model.py` - Defines the neural network architecture
+- `docs/` - Web demo
 
 ## Quick Start
 

@@ -286,7 +286,7 @@ def main():
         print("Loaded best model for export")
     
     # Export to ONNX
-    export_model(model, "www/one_hot_chord.onnx")
+    export_model(model, "docs/one_hot_chord.onnx")
 
 if __name__ == "__main__":
     main()
