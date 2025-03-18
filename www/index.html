@@ -503,9 +503,14 @@
             // Update chord display
             chordDisplay.textContent = data.chordText;
             
-            // Update processing time display
-            if (data.processingTime) {
-                document.getElementById('processingTime').textContent = data.processingTime.toFixed(1);
+            // Update processing time display - more robust handling
+            if (data.processingTime !== undefined && data.processingTime !== null) {
+                const timeValue = parseFloat(data.processingTime);
+                if (!isNaN(timeValue)) {
+                    const formattedTime = timeValue.toFixed(1);
+                    const processingTimeElement = document.getElementById('processingTime');
+                    processingTimeElement.textContent = formattedTime !== "0.0" ? formattedTime : "< 0.1";
+                }
             }
         };
         
