@@ -216,80 +216,75 @@
             transform: scale(1.05);
         }
         
-        .modal-overlay {
+        /* New help panel styles */
+        .help-panel {
             position: fixed;
             top: 0;
-            left: 0;
+            right: -100%;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background-color: var(--background-color);
             z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-        
-        .modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        .modal {
-            background-color: white;
-            border-radius: 12px;
-            padding: 24px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
+            transition: transform 0.4s ease;
+            transform: translateX(100%);
             overflow-y: auto;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            transform: translateY(20px);
-            transition: all 0.3s ease;
         }
         
-        .modal-overlay.active .modal {
-            transform: translateY(0);
+        .help-panel.active {
+            transform: translateX(0);
+            right: 0;
         }
         
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
+        .help-content {
+            max-width: 700px;
+            width: 90%;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+            position: relative;
         }
         
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-color);
-        }
-        
-        .modal-close {
+        .close-help {
+            position: absolute;
+            top: 20px;
+            right: 20px;
             background: none;
             border: none;
             cursor: pointer;
-            color: var(--secondary-text);
-            font-size: 1.5rem;
-            line-height: 1;
-            padding: 4px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            background-color: rgba(0, 0, 0, 0.05);
         }
         
-        .modal-content {
-            color: var(--text-color);
+        .close-help:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+        
+        .help-title {
+            font-size: 2.2rem;
+            margin-bottom: 30px;
+            color: var(--primary-color);
+            text-align: left;
+        }
+        
+        .help-text {
+            text-align: left;
             line-height: 1.6;
-            /* text-align: left; */
         }
         
-        .modal-content p {
-            margin-bottom: 16px;
+        .help-text p {
+            margin-bottom: 20px;
+            font-size: 17px;
         }
         
-        .modal-content h3 {
-            margin-top: 20px;
-            margin-bottom: 8px;
+        .help-text h3 {
+            font-size: 1.4rem;
+            margin-top: 30px;
+            margin-bottom: 15px;
             color: var(--primary-color);
         }
         
@@ -324,6 +319,25 @@
                 width: 32px;
                 height: 32px;
             }
+            
+            .help-title {
+                font-size: 1.8rem;
+            }
+        }
+        
+        .processing-time {
+            margin-top: 15px;
+            font-size: 14px;
+            color: var(--secondary-text);
+            width: 100%;
+            text-align: center;
+            position: relative;
+        }
+        
+        #processingTime {
+            display: inline-block;
+            min-width: 30px;
+            text-align: right;
         }
     </style>
 </head>
@@ -389,16 +403,28 @@
         <div class="volume-meter">
             <div id="volumeLevel" class="volume-level"></div>
         </div>
+        
+        <div class="processing-time">
+            <span>Processing time: </span>
+            <span id="processingTime">0</span>
+            <span> ms</span>
+        </div>
     </div>
     
-    <div id="helpModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title">How It Works</h2>
-                <button id="closeModal" class="modal-close">&times;</button>
-            </div>
-            <div class="modal-content">
-                <p>This app uses machine learning to recognize the chord you're playing on your instrument. Here's how to use it:</p>
+    <!-- New Help Panel -->
+    <div id="helpPanel" class="help-panel">
+        <div class="help-content">
+            <button id="closeHelp" class="close-help">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            
+            <h2 class="help-title">How It Works</h2>
+            
+            <div class="help-text">
+                <p>This app uses machine learning to recognize the chord you're playing on your instrument.</p>
                 
                 <h3>Getting Started</h3>
                 <p>1. Click the microphone button to start listening<br>
@@ -406,7 +432,7 @@
                 3. The app will analyze the audio and display the detected chord</p>
                 
                 <h3>The Technology</h3>
-                <p>The app analyzes the audio spectrum from your microphone using a Constant-Q Transform (CQT), which is particularly suited for musical analysis. It then extracts features that represent the harmonic content of your playing and feeds them into a deep neural network to identify both the root note and chord type.</p>
+                <p>The app analyzes the audio spectrum from your microphone and extracts 3 features: the Constant-Q Transform (CQT), the frequency centroid for each note, and the Tonnetz norms. It then feeds the data into a deep neural network to identify both the root note and chord type.</p>
                 <p><strong>Privacy note:</strong> All processing happens entirely on your device. Your audio is never uploaded to any server or stored anywhere - the analysis happens in real-time in your browser using WebAudio and the ONNX runtime.</p>
                 
                 <h3>Visualization</h3>
@@ -417,6 +443,8 @@
                 • Position your microphone close to your instrument<br>
                 • Play chords clearly and let them ring<br>
                 • The app works best with standard chord voicings</p>
+
+                <p>Source code: <a href="https://github.com/opsengine/onehotchord">https://github.com/opsengine/onehotchord</a></p>
             </div>
         </div>
     </div>
@@ -474,6 +502,11 @@
             
             // Update chord display
             chordDisplay.textContent = data.chordText;
+            
+            // Update processing time display
+            if (data.processingTime) {
+                document.getElementById('processingTime').textContent = data.processingTime.toFixed(1);
+            }
         };
         
         // Load the model when the page loads
@@ -484,36 +517,25 @@
             recognizer.toggleListening();
         });
 
-        // Help modal functionality
+        // Help panel functionality
         const helpBtn = document.getElementById('helpBtn');
-        const helpModal = document.getElementById('helpModal');
-        const closeModal = document.getElementById('closeModal');
+        const helpPanel = document.getElementById('helpPanel');
+        const closeHelp = document.getElementById('closeHelp');
 
         helpBtn.addEventListener('click', () => {
-            helpModal.classList.add('active');
-            // Prevent scrolling of the background
+            helpPanel.classList.add('active');
             document.body.style.overflow = 'hidden';
         });
 
-        closeModal.addEventListener('click', () => {
-            helpModal.classList.remove('active');
-            // Re-enable scrolling
+        closeHelp.addEventListener('click', () => {
+            helpPanel.classList.remove('active');
             document.body.style.overflow = '';
         });
 
-        // Close modal when clicking outside of it
-        helpModal.addEventListener('click', (e) => {
-            if (e.target === helpModal) {
-                helpModal.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
-
-        // Close modal with Escape key
+        // Close panel with Escape key
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && helpModal.classList.contains('active')) {
-                helpModal.classList.remove('active');
-                document.body.style.overflow = '';
+            if (e.key === 'Escape' && helpPanel.classList.contains('active')) {
+                closeHelp.click();
             }
         });
     </script>

@@ -316,6 +316,9 @@ export class ChordRecognizer {
     
     // Update audio data and visualization
     async updateAudioData() {
+        // Start timing
+        const startTime = performance.now();
+        
         // Get frequency data
         this.analyzer.getFloatFrequencyData(this.dataArray);
         
@@ -367,6 +370,10 @@ export class ChordRecognizer {
         // Run model inference
         const prediction = await this.runModelInference(normalizedChroma, octaveCentroid, tonnetzNorms);
         
+        // End timing
+        const endTime = performance.now();
+        const processingTime = endTime - startTime;
+        
         // Determine chord display text
         let chordText = "play a chord...";
         if (prediction && prediction.presence > 0.5 && volume > 0.1) {
@@ -384,7 +391,8 @@ export class ChordRecognizer {
                 volume,
                 normalizedChroma,
                 prediction,
-                chordText
+                chordText,
+                processingTime
             });
         }
     }
