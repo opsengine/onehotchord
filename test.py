@@ -1,5 +1,5 @@
 import torch
-from net import OneHotChordNet
+from model import OneHotChordNet
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.model_selection import train_test_split

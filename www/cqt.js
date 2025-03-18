@@ -2,6 +2,29 @@
  * Constant-Q Transform implementation
  */
 class CQTransform {
+    static TONNETZ_MATRIX = (() => {
+        const T = new Array(6).fill().map(() => new Array(12).fill(0));
+
+        const r1 = 1.0;
+        const r2 = 1.0;
+        const r3 = 0.5;
+
+        // Generate the transformation matrix
+        for (let l = 0; l < 12; l++) {
+            // Perfect fifth (7 semitones) - rows 0-1
+            T[0][l] = r1 * Math.sin(l * 7 * Math.PI / 6);
+            T[1][l] = r1 * Math.cos(l * 7 * Math.PI / 6);
+            // Minor third (3 semitones) - rows 2-3
+            T[2][l] = r2 * Math.sin(l * 3 * Math.PI / 2);
+            T[3][l] = r2 * Math.cos(l * 3 * Math.PI / 2);
+            // Major third (4 semitones) - rows 4-5
+            T[4][l] = r3 * Math.sin(l * 2 * Math.PI / 3);
+            T[5][l] = r3 * Math.cos(l * 2 * Math.PI / 3);
+        }
+
+        return T;
+    })();
+
     constructor(options = {}) {
         // Default parameters
         this.minFreq = options.minFreq || 65.41;  // C2
@@ -266,6 +289,45 @@ class CQTransform {
         }
         
         return chroma;
+    }
+
+    /**
+     * Compute the Tonnetz vector (6D) and calculate the norms
+     * @param {Float32Array} chromagram - 12-element array with energy for each note
+     * @returns {Float32Array} - 3-element array with the norms of each Tonnetz vector
+     */
+    computeTonnetzNorm(chromagram) {
+        // Chromagram should be [C, C#, D, ..., B] (12 elements)
+        if (chromagram.length !== 12) {
+            throw new Error("Chromagram must have 12 pitch classes");
+        }
+
+        // Normalize the chromagram
+        let normalizedChromagram = chromagram.slice();
+        let norm = 0;
+        for (let i = 0; i < chromagram.length; i++) {
+            norm += Math.abs(chromagram[i]);
+        }
+        if (norm !== 0) {
+            for (let i = 0; i < normalizedChromagram.length; i++) {
+                normalizedChromagram[i] /= norm;
+            }
+        }
+
+        // Compute 6D Tonnetz vector using the pre-computed static matrix
+        let tonnetz = new Array(6).fill(0);
+        for (let i = 0; i < 6; i++) {
+            for (let j = 0; j < 12; j++) {
+                tonnetz[i] += normalizedChromagram[j] * CQTransform.TONNETZ_MATRIX[i][j];
+            }
+        }
+
+        // Compute norms for three axes
+        const fifthsNorm = Math.sqrt(tonnetz[0] * tonnetz[0] + tonnetz[1] * tonnetz[1]);
+        const majorThirdNorm = Math.sqrt(tonnetz[2] * tonnetz[2] + tonnetz[3] * tonnetz[3]);
+        const minorThirdNorm = Math.sqrt(tonnetz[4] * tonnetz[4] + tonnetz[5] * tonnetz[5]);
+
+        return [fifthsNorm, majorThirdNorm, minorThirdNorm];
     }
 }
 

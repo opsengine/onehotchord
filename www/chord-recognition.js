@@ -245,17 +245,19 @@ export class ChordRecognizer {
     }
     
     // Run model inference on the CQT data
-    async runModelInference(chroma, octaveCentroid) {
+    async runModelInference(chroma, octaveCentroid, tonnetzNorms) {
         if (!this.modelLoaded) return null;
     
         try {
-            // Prepare the input features (24 values: 12 for chroma, 12 for octave centroid)
-            const features = new Float32Array(24);
+            // Prepare the input features (27 values: 12 for chroma, 12 for octave centroid, 3 for tonnetz norms)
+            const numFeatures = 27;
+            const features = new Float32Array(numFeatures);
             features.set(chroma, 0);
             features.set(octaveCentroid, 12);
+            features.set(tonnetzNorms, 24);
 
             // Prepare the input tensor
-            const inputTensor = new onnx.Tensor(features, 'float32', [1, 24]);
+            const inputTensor = new onnx.Tensor(features, 'float32', [1, numFeatures]);
             
             // Run inference
             const outputMap = await this.session.run([inputTensor]);
@@ -359,8 +361,11 @@ export class ChordRecognizer {
             }
         }
         
+        // Calculate Tonnetz norms
+        const tonnetzNorms = this.cqt.computeTonnetzNorm(normalizedChroma);
+
         // Run model inference
-        const prediction = await this.runModelInference(normalizedChroma, octaveCentroid);
+        const prediction = await this.runModelInference(normalizedChroma, octaveCentroid, tonnetzNorms);
         
         // Determine chord display text
         let chordText = "play a chord...";

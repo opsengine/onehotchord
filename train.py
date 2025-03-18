@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from net import OneHotChordNet
+from model import OneHotChordNet, NUM_FEATURES
 from common import CHORDS_BY_NAME
 
 # Helper functions
@@ -117,12 +117,15 @@ def calculate_accuracies(root_outputs, chord_outputs, presence_outputs,
     
     return root_acc, chord_acc, presence_acc
 
-def train_epoch(model, train_loader, optimizer, ce_criterion, bce_criterion):
+def train_epoch(model, train_loader, optimizer, ce_criterion, bce_criterion, device):
     """Train for one epoch"""
     model.train()
     train_loss = 0
     
     for features, targets in train_loader:
+        features = features.to(device)
+        targets = targets.to(device)
+
         optimizer.zero_grad()
         root_outputs, chord_outputs, presence_outputs = model(features)
         
@@ -143,7 +146,7 @@ def train_epoch(model, train_loader, optimizer, ce_criterion, bce_criterion):
     
     return train_loss / len(train_loader)
 
-def validate(model, val_loader, ce_criterion, bce_criterion):
+def validate(model, val_loader, ce_criterion, bce_criterion, device):
     """Validate the model"""
     model.eval()
     val_loss = 0
@@ -151,9 +154,12 @@ def validate(model, val_loader, ce_criterion, bce_criterion):
     val_chord_acc = 0
     val_presence_acc = 0
     val_batches = 0
-    
+
     with torch.no_grad():
         for features, targets in val_loader:
+            features = features.to(device)
+            targets = targets.to(device)
+            
             root_outputs, chord_outputs, presence_outputs = model(features)
             
             # Extract targets
@@ -190,7 +196,7 @@ def validate(model, val_loader, ce_criterion, bce_criterion):
 def export_model(model, filename):
     """Export model to ONNX format"""
     model.eval()
-    x = torch.randn(1, 24)
+    x = torch.randn(1, NUM_FEATURES)
     
     torch.onnx.export(
         model, 
@@ -212,11 +218,13 @@ def main():
         print("Usage: python train.py <data_file.npz>")
         sys.exit(1)
         
+    device = torch.device("cpu")
+
     # Load and prepare data
     train_loader, val_loader = load_and_prepare_data(sys.argv[1])
     
     # Initialize model and optimizer
-    model = OneHotChordNet()
+    model = OneHotChordNet().to(device)
     optimizer = Adam(model.parameters(), lr=0.001)
     
     # Define loss functions
@@ -238,11 +246,11 @@ def main():
     
     for epoch in range(epochs):
         # Train for one epoch
-        train_loss = train_epoch(model, train_loader, optimizer, ce_criterion, bce_criterion)
+        train_loss = train_epoch(model, train_loader, optimizer, ce_criterion, bce_criterion, device)
         
         # Validate
         val_loss, val_root_acc, val_chord_acc, val_presence_acc = validate(
-            model, val_loader, ce_criterion, bce_criterion
+            model, val_loader, ce_criterion, bce_criterion, device
         )
         
         # Calculate combined accuracy (weighted average)

@@ -5,7 +5,7 @@ import time
 import queue
 import librosa
 
-from net import OneHotChordNet
+from model import OneHotChordNet
 from common import CHORDS_BY_NAME
 from preprocess import extract_features
 
@@ -103,10 +103,6 @@ def main():
     # Buffer to store audio data
     audio_buffer = np.zeros(BUFFER_SIZE, dtype=np.float32)
     
-    # Minimum confidence threshold
-    confidence_threshold = 0.3
-    presence_threshold = 0.5
-    
     try:
         while stream.is_active():
             # Get audio data from queue
@@ -116,20 +112,27 @@ def main():
                 # Update buffer (shift old data left, add new data to the right)
                 audio_buffer = np.roll(audio_buffer, -len(audio_data))
                 audio_buffer[-len(audio_data):] = audio_data
-                
-                # Extract features from the last WINDOW_SIZE samples
-                features = extract_features(audio_buffer[-WINDOW_SIZE:], SAMPLE_RATE)
+
+                try:
+                    # Extract features from the last WINDOW_SIZE samples
+                    features = extract_features(audio_buffer[-WINDOW_SIZE:], SAMPLE_RATE)
+                except ValueError as e:
+                    print(f"Error extracting features: {e}")
+                    continue
                 
                 # Predict chord
                 root_pred, chord_pred, root_conf, chord_conf, presence_prob = predict_chord(model, features)
                 
                 chord_name = f"{NOTE_NAMES[root_pred]}{CHORD_NAMES[chord_pred]}"
-                if presence_prob > presence_threshold: # and root_conf > confidence_threshold and chord_conf > confidence_threshold:
-                    print(f"Detected: {chord_name} (Root: {root_conf*100:.1f}%, Chord: {chord_conf*100:.1f}%, Presence: {presence_prob*100:.1f}%)   ")
-                # else:
-                #     print(f"No chord detected: {chord_name} (Root: {root_conf*100:.1f}%, Chord: {chord_conf*100:.1f}%, Presence: {presence_prob*100:.1f}%)   ")
-                # else:
-                #     print("\rNo chord detected with high confidence                                ", end="")
+
+                presence_threshold = 0.5
+                confidence_threshold = 0.3
+                if presence_prob > presence_threshold and root_conf > confidence_threshold and chord_conf > confidence_threshold:
+                    color = "\033[92m"
+                else:
+                    color = "\033[91m"
+                color_end = "\033[0m"
+                print(f"{color}Root: {root_conf*100:.1f}%, Chord: {chord_conf*100:.1f}%, Presence: {presence_prob*100:.1f}%, {chord_name}{color_end}")
             
             # Sleep to reduce CPU usage
             time.sleep(0.01)

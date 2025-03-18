@@ -57,9 +57,13 @@ def generate_chord_wav(root, chord_type, intervals, duration, instrument, invert
     filename = f"{CHORD_DIR}/{root}_{chord_type}_{instrument}_{invert}"
     midi_file = f"{filename}.mid"
     output_file = f"{filename}.wav"
-    
-    for i in range(invert):
-        intervals = invert_up(intervals)
+
+    if invert > 0:
+        for i in range(invert):
+            intervals = invert_up(intervals)
+    elif invert < 0:
+        for i in range(-invert):
+            intervals = invert_down(intervals)
 
     generate_chord_midi(root, intervals, midi_file, duration, instrument)
     
@@ -309,7 +313,8 @@ if __name__ == "__main__":
     for root in range(12):
         for chord_type, intervals in CHORDS_INTERVALS.items():
             for instrument in INSTRUMENTS:
-                for invert in range(4):
+                # from one octave down to two octaves up
+                for invert in range(-3, 8):
                     chord_tasks.append((root, chord_type, intervals, duration, instrument, invert))
     
     # Create a list of noise tasks
