@@ -487,6 +487,16 @@
             } else if (status === 'stopped') {
                 listenBtn.classList.remove('listening');
                 statusText.textContent = 'Tap the microphone to begin';
+                
+                // Hide the result container when stopped
+                resultContainer.classList.remove('active');
+                
+                // Reset visualization
+                bars.forEach(bar => {
+                    bar.style.height = '0%';
+                });
+                volumeLevel.style.width = '0%';
+                chordDisplay.textContent = '-';
             }
         };
         
