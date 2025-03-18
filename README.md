@@ -1,6 +1,6 @@
 # One Hot Chord
 
-An experimental deep learning project for real-time chord recognition from audio input. This project demonstrates how machine learning can be applied to music analysis. You can access the demo at https://opsengine.github.io/onehotchord/www
+An experimental deep learning project for real-time chord recognition from audio input. This project demonstrates how machine learning can be applied to music analysis. You can access the demo at https://onehotchord.com
 
 > **Note:** This is an experimental project and may not work perfectly in all scenarios.
 
