@@ -57,14 +57,9 @@ def extract_features(audio_buffer, sr):
     # Tonnetz
     tonnetz = librosa.feature.tonnetz(y=audio_buffer, sr=sr)
     tonnetz_mean = np.mean(tonnetz, axis=1)
-    tonnetz_mag = np.array([
-        np.linalg.norm(tonnetz_mean[0:2]),
-        np.linalg.norm(tonnetz_mean[2:4]),
-        np.linalg.norm(tonnetz_mean[4:6]),
-    ])
 
     # return features
-    return np.concatenate([normalized_chroma, freq_centroid, tonnetz_mag])
+    return np.concatenate([normalized_chroma, freq_centroid, tonnetz_mean])
 
 def add_noise(audio_buffer, noise_level=0.005, noise='white'):
     if noise is None:

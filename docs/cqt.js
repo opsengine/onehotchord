@@ -292,42 +292,34 @@ class CQTransform {
     }
 
     /**
-     * Compute the Tonnetz vector (6D) and calculate the norms
+     * Compute the Tonnetz vector (6D)
      * @param {Float32Array} chromagram - 12-element array with energy for each note
-     * @returns {Float32Array} - 3-element array with the norms of each Tonnetz vector
+     * @returns {Float32Array} - 6-element array with the Tonnetz vector
      */
-    computeTonnetzNorm(chromagram) {
+    computeTonnetz(chromagram) {
         // Chromagram should be [C, C#, D, ..., B] (12 elements)
         if (chromagram.length !== 12) {
             throw new Error("Chromagram must have 12 pitch classes");
         }
 
         // Normalize the chromagram
-        let normalizedChromagram = chromagram.slice();
         let norm = 0;
         for (let i = 0; i < chromagram.length; i++) {
             norm += Math.abs(chromagram[i]);
         }
-        if (norm !== 0) {
-            for (let i = 0; i < normalizedChromagram.length; i++) {
-                normalizedChromagram[i] /= norm;
-            }
-        }
 
         // Compute 6D Tonnetz vector using the pre-computed static matrix
-        let tonnetz = new Array(6).fill(0);
+        const tonnetz = new Array(6).fill(0);
         for (let i = 0; i < 6; i++) {
             for (let j = 0; j < 12; j++) {
-                tonnetz[i] += normalizedChromagram[j] * CQTransform.TONNETZ_MATRIX[i][j];
+                tonnetz[i] += chromagram[j] * CQTransform.TONNETZ_MATRIX[i][j];
+            }
+            if (norm !== 0) {
+                tonnetz[i] /= norm;
             }
         }
 
-        // Compute norms for three axes
-        const fifthsNorm = Math.sqrt(tonnetz[0] * tonnetz[0] + tonnetz[1] * tonnetz[1]);
-        const majorThirdNorm = Math.sqrt(tonnetz[2] * tonnetz[2] + tonnetz[3] * tonnetz[3]);
-        const minorThirdNorm = Math.sqrt(tonnetz[4] * tonnetz[4] + tonnetz[5] * tonnetz[5]);
-
-        return [fifthsNorm, majorThirdNorm, minorThirdNorm];
+        return tonnetz;
     }
 }
 
