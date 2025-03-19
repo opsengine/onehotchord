@@ -25,6 +25,7 @@ def extract_features(audio_buffer, sr):
         fmin=librosa.note_to_hz('C2'),
         hop_length=512,
         filter_scale=4.0,
+        window='hann',
     )
 
     # Convert to magnitude
@@ -55,11 +56,11 @@ def extract_features(audio_buffer, sr):
     normalized_chroma = chroma / max_chroma
 
     # Tonnetz
-    tonnetz = librosa.feature.tonnetz(y=audio_buffer, sr=sr)
+    tonnetz = compute_tonnetz(np.array([normalized_chroma]).transpose())
     tonnetz_mean = np.mean(tonnetz, axis=1)
 
-    # return features
-    return np.concatenate([normalized_chroma, freq_centroid, tonnetz_mean])
+    features = np.concatenate([normalized_chroma, freq_centroid, tonnetz_mean])
+    return features
 
 def add_noise(audio_buffer, noise_level=0.005, noise='white'):
     if noise is None:
@@ -118,7 +119,7 @@ def process_file(file_path):
     """
     # Extract label from filename (format: root_chordtype_instrument.wav)
     filename = os.path.basename(file_path)
-    match = re.match(r'(\d+)_([a-z0-9]+)_.*\.wav', filename)
+    match = re.match(r'(\d+)_([a-z0-9]+)_(.*)_(.*)\.wav', filename)
     if match:
         chord_present = True
         root = int(match.group(1))

@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from common import CHORDS_BY_NAME
 
-NUM_FEATURES = 30
+NUM_FEATURES = 36
 
 class OneHotChordNet(nn.Module):
     def __init__(self):

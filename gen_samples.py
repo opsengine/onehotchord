@@ -13,6 +13,7 @@ import struct
 from common import *
 
 SAMPLE_RATE = 22050
+BASE_NOTE = 36 # C2
 
 def get_instrument():
     return random.choice(INSTRUMENTS)
@@ -30,7 +31,7 @@ def generate_chord_midi(root, intervals, filename, duration, instrument):
     track.append(mido.MetaMessage('set_tempo', tempo=tempo, time=0))
     track.append(mido.Message('program_change', program=instrument, time=0))
 
-    root_midi = 48 + root
+    root_midi = BASE_NOTE + root
 
     for note in [root_midi + i for i in intervals]:
         track.append(mido.Message('note_on', note=note, velocity=get_random_velocity(), time=0))
@@ -54,16 +55,17 @@ def truncate_wav(wav_file, duration):
 
 
 def generate_chord_wav(root, chord_type, intervals, duration, instrument, invert):
-    filename = f"{CHORD_DIR}/{root}_{chord_type}_{instrument}_{invert}"
-    midi_file = f"{filename}.mid"
-    output_file = f"{filename}.wav"
-
     if invert > 0:
-        for i in range(invert):
+        for _ in range(invert):
             intervals = invert_up(intervals)
     elif invert < 0:
-        for i in range(-invert):
+        for _ in range(-invert):
             intervals = invert_down(intervals)
+
+    bass = BASE_NOTE + intervals[0]
+    filename = f"{CHORD_DIR}/{root}_{chord_type}_{bass}_{instrument}"
+    midi_file = f"{filename}.mid"
+    output_file = f"{filename}.wav"
 
     generate_chord_midi(root, intervals, midi_file, duration, instrument)
     
@@ -295,6 +297,7 @@ def generate_single_note_wav(note_value, duration, instrument):
         midi_file
     ])
     os.remove(midi_file)
+    truncate_wav(output_file, 1)
     print(f"Generated single note: {output_file}")
     return output_file
 
@@ -313,8 +316,8 @@ if __name__ == "__main__":
     for root in range(12):
         for chord_type, intervals in CHORDS_INTERVALS.items():
             for instrument in INSTRUMENTS:
-                # from one octave down to two octaves up
-                for invert in range(-3, 8):
+                # invert chord up to 11 times
+                for invert in range(0, 11):
                     chord_tasks.append((root, chord_type, intervals, duration, instrument, invert))
     
     # Create a list of noise tasks

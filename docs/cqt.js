@@ -2,24 +2,60 @@
  * Constant-Q Transform implementation
  */
 class CQTransform {
+    // This matrix is from the paper "Detecting Harmonic Change In Musical Audio"
+    // by Harte et al.
+    // https://ofai.at/papers/oefai-tr-2006-13.pdf
     static TONNETZ_MATRIX = (() => {
         const T = new Array(6).fill().map(() => new Array(12).fill(0));
 
-        const r1 = 1.0;
-        const r2 = 1.0;
-        const r3 = 0.5;
+        const r = [
+            1.0,
+            1.0,
+            0.5,
+        ]
 
         // Generate the transformation matrix
         for (let l = 0; l < 12; l++) {
-            // Perfect fifth (7 semitones) - rows 0-1
-            T[0][l] = r1 * Math.sin(l * 7 * Math.PI / 6);
-            T[1][l] = r1 * Math.cos(l * 7 * Math.PI / 6);
-            // Minor third (3 semitones) - rows 2-3
-            T[2][l] = r2 * Math.sin(l * 3 * Math.PI / 2);
-            T[3][l] = r2 * Math.cos(l * 3 * Math.PI / 2);
-            // Major third (4 semitones) - rows 4-5
-            T[4][l] = r3 * Math.sin(l * 2 * Math.PI / 3);
-            T[5][l] = r3 * Math.cos(l * 2 * Math.PI / 3);
+            // Perfect fifth (7 semitones)
+            T[0][l] = r[0] * Math.sin(l * 7 * Math.PI / 6);
+            T[1][l] = r[0] * Math.cos(l * 7 * Math.PI / 6);
+            // Minor third (3 semitones)
+            T[2][l] = r[1] * Math.sin(l * 9 * Math.PI / 6);
+            T[3][l] = r[1] * Math.cos(l * 9 * Math.PI / 6);
+            // Major third (4 semitones)
+            T[4][l] = r[2] * Math.sin(l * 4 * Math.PI / 6);
+            T[5][l] = r[2] * Math.cos(l * 4 * Math.PI / 6);
+        }
+
+        return T;
+    })();
+
+    // This matrix has been extended to include 6 intervals and has unary weights
+    static TONNETZ_MATRIX_EXTENDED = (() => {
+        // Create a Map instead of a regular object
+        const intervalWeights = new Map([
+            [7, 1.0],  // Perfect fifth
+            [3, 1.0],  // Minor third
+            [4, 1.0],  // Major third
+            [2, 1.0],  // Major second
+            [9, 1.0],  // Major sixth
+            [6, 1.0],  // Tritone
+        ]);
+
+        const numIntervals = intervalWeights.size;
+        const T = new Array(numIntervals * 2).fill().map(() => new Array(12).fill(0));
+
+        // Generate the transformation matrix
+        for (let l = 0; l < 12; l++) {
+            let i = 0;
+            for (const [interval, weight] of intervalWeights) {
+                const angle = l * interval * Math.PI / 6;
+                // Sin components in the first half
+                T[i][l] = weight * Math.sin(angle);
+                // Cos components in the second half
+                T[i+1][l] = weight * Math.cos(angle);
+                i+=2;
+            }
         }
 
         return T;
@@ -137,7 +173,7 @@ class CQTransform {
         const magnitudes = new Float32Array(frequencyData.length);
         for (let i = 0; i < frequencyData.length; i++) {
             // Add a floor to avoid very small values
-            const dB = Math.max(frequencyData[i], -100);
+            const dB = Math.max(frequencyData[i], -120);
             // Apply a high scaling factor to the magnitudes
             magnitudes[i] = Math.pow(10, dB / 20) * 1000000;
         }
@@ -292,9 +328,9 @@ class CQTransform {
     }
 
     /**
-     * Compute the Tonnetz vector (6D)
+     * Compute the Tonnetz vector (12D)
      * @param {Float32Array} chromagram - 12-element array with energy for each note
-     * @returns {Float32Array} - 6-element array with the Tonnetz vector
+     * @returns {Float32Array} - 12-element array with the Tonnetz vector
      */
     computeTonnetz(chromagram) {
         // Chromagram should be [C, C#, D, ..., B] (12 elements)
@@ -308,17 +344,16 @@ class CQTransform {
             norm += Math.abs(chromagram[i]);
         }
 
-        // Compute 6D Tonnetz vector using the pre-computed static matrix
-        const tonnetz = new Array(6).fill(0);
-        for (let i = 0; i < 6; i++) {
+        // Compute 12D Tonnetz vector using the pre-computed static matrix
+        const tonnetz = new Array(12).fill(0);
+        for (let i = 0; i < 12; i++) {
             for (let j = 0; j < 12; j++) {
-                tonnetz[i] += chromagram[j] * CQTransform.TONNETZ_MATRIX[i][j];
+                tonnetz[i] += chromagram[j] * CQTransform.TONNETZ_MATRIX_EXTENDED[i][j];
             }
             if (norm !== 0) {
                 tonnetz[i] /= norm;
             }
         }
-
         return tonnetz;
     }
 }

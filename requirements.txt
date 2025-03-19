@@ -12,3 +12,4 @@ onnx
 protobuf==5.29.3
 pyaudio
 soundfile
+PyQt5

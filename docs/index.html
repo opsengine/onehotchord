@@ -277,7 +277,7 @@
         }
         
         .help-text p {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             font-size: 17px;
         }
         
@@ -286,6 +286,12 @@
             margin-top: 30px;
             margin-bottom: 15px;
             color: var(--primary-color);
+        }
+
+        .help-text ul {
+            margin-top: 10px;
+            margin-left: 20px;
+            margin-bottom: 10px;
         }
         
         /* Responsive adjustments */
@@ -424,25 +430,35 @@
             <h2 class="help-title">How It Works</h2>
             
             <div class="help-text">
-                <p>This app uses machine learning to recognize the chord you're playing on your instrument.</p>
+                <p>This app uses machine learning to recognize the chord you're playing on your instrument!</p>
                 
                 <h3>Getting Started</h3>
-                <p>1. Click the microphone button to start listening<br>
-                2. Play a chord on your instrument<br>
-                3. The app will analyze the audio and display the detected chord</p>
+                <ul>
+                    <li>Click the microphone button to start listening</li>
+                    <li>Play a chord on your instrument</li>
+                    <li>The app will analyze the audio and display the detected chord</li>
+                </ul>
                 
                 <h3>The Technology</h3>
-                <p>The app analyzes the audio spectrum from your microphone and extracts 3 features: the Constant-Q Transform (CQT), the frequency centroid for each note, and the Tonnetz. It then feeds the data into a deep neural network to identify both the root note and chord type.</p>
+                <p>The app analyzes the audio spectrum from your microphone and feeds it into a deep neural network to identify both the root note and chord type.</p>
+                <p>Features used:</p>
+                <ul>
+                    <li>Constant-Q Transform (CQT)</li>
+                    <li>Octave Centroid</li>
+                    <li>Tonnetz</li>
+                </ul>
                 <p><strong>Privacy note:</strong> All processing happens entirely on your device. Your audio is never uploaded to any server or stored anywhere - the analysis happens in real-time in your browser using WebAudio and the ONNX runtime.</p>
                 
                 <h3>Visualization</h3>
                 <p>The colored bars represent the 12 notes of the musical scale. Taller bars indicate stronger presence of that note in your audio, helping you visualize what the AI "hears".</p>
                 
                 <h3>Tips for Best Results</h3>
-                <p>• Use in a quiet environment<br>
-                • Position your microphone close to your instrument<br>
-                • Play chords clearly and let them ring<br>
-                • The app works best with standard chord voicings</p>
+                <ul>
+                    <li>Use in a quiet environment</li>
+                    <li>Position your microphone close to your instrument</li>
+                    <li>Play chords clearly and let them ring</li>
+                    <li>Works best with standard chord voicings</li>
+                </ul>
 
                 <p>Source code: <a href="https://github.com/opsengine/onehotchord">https://github.com/opsengine/onehotchord</a></p>
             </div>

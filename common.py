@@ -1,3 +1,4 @@
+import numpy as np
 INSTRUMENTS = [
     0, 1, 2, 4, 5,      # Pianos
     24, 25, 26,         # Guitars
@@ -22,8 +23,6 @@ CHORDS_INTERVALS = {
     # "6": [0, 4, 7, 9],
 }
 
-# const chordNames = ["maj", "min", "7", "maj7", "min7", "dim", "aug", "sus2", "sus4", "6"];
-
 CHORDS_BY_NAME = { chord: i for i, chord in enumerate(CHORDS_INTERVALS) }
 
 CHORDS_BY_ID = { i: chord for i, chord in enumerate(CHORDS_INTERVALS) }
@@ -33,3 +32,40 @@ def invert_up(intervals):
 
 def invert_down(intervals):
     return [intervals[-1]-12 if i == 0 else intervals[i-1] for i in range(len(intervals))]
+
+def create_tonnetz_matrix_extended():
+    intervals = [
+        7,  # Perfect fifth
+        3,  # Minor third
+        4,  # Major third
+        2,  # Major second
+        9,  # Major sixth
+        6,  # Tritone
+    ]
+
+    # Create arrays for pitch classes and intervals
+    pitch_classes = np.arange(12)
+    num_intervals = len(intervals)
+    
+    # Create a matrix of angles using broadcasting
+    # Shape: (num_intervals, 12)
+    angles = np.outer(intervals, pitch_classes) * (np.pi / 6)
+    
+    # Initialize the output matrix
+    T = np.zeros((num_intervals * 2, 12))
+    
+    # Fill all sin components at once (even rows)
+    T[::2] = np.sin(angles)
+    
+    # Fill all cos components at once (odd rows)
+    T[1::2] = np.cos(angles)
+    
+    return T
+
+TONNETZ_MATRIX_EXTENDED = create_tonnetz_matrix_extended()
+
+def compute_tonnetz(chroma):
+    l1_norm = np.sum(np.abs(chroma))
+    if l1_norm != 0:
+        chroma = chroma / l1_norm
+    return TONNETZ_MATRIX_EXTENDED @ chroma

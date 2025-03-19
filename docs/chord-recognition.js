@@ -56,18 +56,18 @@ export class ChordRecognizer {
             // Create audio context with proper type handling for webkitAudioContext
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContextClass({
-                sampleRate: 44100  // This is now double the original rate
+                sampleRate: 22050
             });
             
             // Get user media
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaStream = stream;  // Store the media stream
+            this.mediaStream = stream;
             const source = this.audioContext.createMediaStreamSource(stream);
-            this.audioSource = source;  // Store the audio source
+            this.audioSource = source;
             
             // Create analyzer
             this.analyzer = this.audioContext.createAnalyser();
-            this.analyzer.fftSize = 16384;  // Double the original size
+            this.analyzer.fftSize = 4096;
             this.analyzer.smoothingTimeConstant = 0.85;
             
             // Connect source to analyzer
@@ -249,8 +249,8 @@ export class ChordRecognizer {
         if (!this.modelLoaded) return null;
     
         try {
-            // Prepare the input features (30 values: 12 for chroma, 12 for octave centroid, 6 for tonnetz)
-            const numFeatures = 30;
+            // Prepare the input features (36 values: 12 for chroma, 12 for octave centroid, 12 for tonnetz)
+            const numFeatures = 36;
             const features = new Float32Array(numFeatures);
             features.set(chroma, 0);
             features.set(octaveCentroid, 12);
